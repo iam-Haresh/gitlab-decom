@@ -26,7 +26,7 @@ def revert_projects(gl, project_changes):
             project = gl.projects.get(c["project_id"])  # refresh after change
 
         common.set_project_topics(project, c["old_topics"])
-        rows.append([c["path"], "topics restored",
+        rows.append([c["project_id"], c["path"], "topics restored",
                      "unarchived" if c["archived_by_us"] else "-"])
     return rows
 
@@ -50,7 +50,7 @@ def main():
 
     print("Reverting project changes...")
     project_rows = revert_projects(gl, state.get("project_changes", []))
-    common.print_table(["Project", "Topics", "Archive"], project_rows)
+    common.print_table(["ID", "Project", "Topics", "Archive"], project_rows)
 
     print("\nReverting LDAP changes...")
     ldap_rows = revert_ldap(gl, state.get("ldap_changes", []))

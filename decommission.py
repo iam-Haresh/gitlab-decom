@@ -172,20 +172,30 @@ def print_summary(plan):
 
     if not plan["ldap_enabled"]:
         print("\nLDAP role changes: SKIPPED (LDAP_ENABLED=false)")
-    print("\nLDAP role changes (downgrade to Reporter):")
-    rows = []
-    for c in plan["ldap_changes"]:
-        name = c["cn"] or f"filter:{c['filter']}"
-        rows.append([c["group_path"], name, c["old_access"], c["new_access"]])
-    common.print_table(["Group", "LDAP CN", "Old", "New(30)"], rows)
+    else:
+        print("\nLDAP role changes (downgrade to Reporter):")
+        rows = []
+        for c in plan["ldap_changes"]:
+            name = c["cn"] or f"filter:{c['filter']}"
+            rows.append([c["group_path"], name, c["old_access"], c["new_access"]])
+        common.print_table(["Group", "LDAP CN", "Old", "New(30)"], rows)
 
     print("\nProject changes (add topic / archive):")
     rows = []
     for c in plan["project_changes"]:
         already = common.NEW_TOPIC in c["old_topics"]
         topic_note = "(already present)" if already else f"+ {common.NEW_TOPIC}"
-        rows.append([c["path"], topic_note, "yes" if c["will_archive"] else "no"])
-    common.print_table(["Project", "Topic", "Archive"], rows)
+        existing = ", ".join(c["old_topics"]) if c["old_topics"] else "(none)"
+        rows.append([
+            c["project_id"],
+            c["path"],
+            existing,
+            topic_note,
+            "yes" if c["will_archive"] else "no",
+        ])
+    common.print_table(
+        ["ID", "Project", "Existing topics", "Topic", "Archive"], rows
+    )
 
 
 # --- Job 2: apply ------------------------------------------------------------
