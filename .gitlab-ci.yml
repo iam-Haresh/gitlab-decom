@@ -1,0 +1,69 @@
+stages:
+  - summarize
+  - apply
+  - revert
+
+# Variables shown on the "Run pipeline" screen. Those with `options` appear as
+# a drop-down. The server URL comes from the predefined CI_SERVER_URL variable,
+# and GITLAB_PRIVATE_TOKEN is NOT defined here on purpose - add it as a masked
+# project CI/CD variable (Settings > CI/CD > Variables) so the token is never
+# stored in the repo.
+variables:
+  STRATEGY:
+    value: "Full_Group"
+    options:
+      - "Full_Group"
+      - "APMID_BASED"
+    description: "Which migration to run. Full_Group = one top-level group (+subgroups): downgrade LDAP roles, tag and optionally archive projects. APMID_BASED = tag/archive active projects matching APM_ID across GROUP_IDS (no LDAP changes)."
+
+  ARCHIVE_ENABLED:
+    value: "false"
+    options:
+      - "false"
+      - "true"
+    description: "Archive the projects after tagging them with DSO-Migrated. 'false' = tag only (safer for a first run)."
+
+  GROUP_ID:
+    value: ""
+    description: "Full_Group only: the single top-level group id to decommission (e.g. 1234). Leave empty for APMID_BASED."
+
+  APM_ID:
+    value: ""
+    description: "APMID_BASED only: the APM-ID topic to match on (e.g. APM12345). Leave empty for Full_Group."
+
+  GROUP_IDS:
+    value: ""
+    description: "APMID_BASED only: comma-separated group ids to search, including their subgroups (e.g. 12,34,56). Leave empty for Full_Group."
+
+default:
+  image: python:3.11-slim
+  before_script:
+    - pip install -r requirements.txt
+
+# Job 1: Show what WILL change. Runs automatically. Makes no changes.
+# Review this job's log before running the manual "apply" job.
+summarize:
+  stage: summarize
+  script:
+    - python decommission.py summary
+
+# Job 2: Apply the changes. Manual - run only after reviewing Job 1.
+# Writes state.json as an artifact so the revert job can undo the changes.
+apply:
+  stage: apply
+  when: manual
+  script:
+    - python decommission.py apply
+  artifacts:
+    paths:
+      - state.json
+    when: always   # keep the state file even if the job fails part-way
+
+# Job 3: Undo everything using state.json from the apply job. Manual.
+revert:
+  stage: revert
+  when: manual
+  needs:
+    - apply        # pulls in the state.json artifact from the apply job
+  script:
+    - python revert.py
