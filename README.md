@@ -41,6 +41,7 @@ Across several groups (and their subgroups):
 | `APM_ID` | `APMID_BASED` | The APM-ID topic to match on. |
 | `GROUP_IDS` | `APMID_BASED` | Comma-separated group ids to search, e.g. `12,34,56`. |
 | `ARCHIVE_ENABLED` | both | `true` to archive projects after tagging, `false` to skip archiving. |
+| `LDAP_ENABLED` | `Full_Group` | `true` (default) applies LDAP role downgrades. Set `false` to skip LDAP entirely — used to validate on accounts without LDAP (e.g. gitlab.com personal). Keep `true` in production. |
 
 ## Files
 

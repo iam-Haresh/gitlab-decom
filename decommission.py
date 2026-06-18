@@ -143,12 +143,15 @@ def build_plan(gl, config):
     plan = {
         "strategy": config["strategy"],
         "archive_enabled": config["archive_enabled"],
+        "ldap_enabled": config["ldap_enabled"],
         "ldap_changes": [],
         "project_changes": [],
     }
 
-    # LDAP role changes only happen for the Full_Group strategy.
-    if config["strategy"] == common.STRATEGY_FULL_GROUP:
+    # LDAP role changes only happen for Full_Group, and only when LDAP is
+    # enabled (LDAP_ENABLED=false lets us validate on a personal account that
+    # has no LDAP group links).
+    if config["strategy"] == common.STRATEGY_FULL_GROUP and config["ldap_enabled"]:
         groups = collect_groups_for_ldap(gl, config)
         plan["ldap_changes"] = plan_ldap_changes(groups)
 
@@ -164,8 +167,11 @@ def print_summary(plan):
     print("=" * 70)
     print(f"DECOMMISSION SUMMARY   strategy={plan['strategy']}")
     print(f"Archive projects: {plan['archive_enabled']}")
+    print(f"LDAP enabled    : {plan['ldap_enabled']}")
     print("=" * 70)
 
+    if not plan["ldap_enabled"]:
+        print("\nLDAP role changes: SKIPPED (LDAP_ENABLED=false)")
     print("\nLDAP role changes (downgrade to Reporter):")
     rows = []
     for c in plan["ldap_changes"]:

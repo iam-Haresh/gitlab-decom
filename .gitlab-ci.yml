@@ -23,6 +23,13 @@ variables:
       - "true"
     description: "Archive the projects after tagging them with DSO-Migrated. 'false' = tag only (safer for a first run)."
 
+  LDAP_ENABLED:
+    value: "true"
+    options:
+      - "true"
+      - "false"
+    description: "Apply LDAP role downgrades (Full_Group only). Set 'false' to skip LDAP entirely - used to validate on accounts without LDAP. Keep 'true' in production."
+
   GROUP_ID:
     value: ""
     description: "Full_Group only: the single top-level group id to decommission (e.g. 1234). Leave empty for APMID_BASED."
