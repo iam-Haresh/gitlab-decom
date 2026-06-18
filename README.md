@@ -61,6 +61,7 @@ export GITLAB_PRIVATE_TOKEN="xxxxx"
 export STRATEGY="Full_Group"
 export GROUP_ID="123"
 export ARCHIVE_ENABLED="false"
+export LDAP_ENABLED="false"        # set "true" only on an LDAP-configured instance
 
 python decommission.py summary    # review - no changes
 python decommission.py apply      # apply  - writes state.json

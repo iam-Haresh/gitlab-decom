@@ -9,8 +9,9 @@ The revert step lives in a separate file: revert.py.
 
 Two strategies (chosen with the STRATEGY variable):
     Full_Group   - one top-level group (+ subgroups): downgrade LDAP roles to
-                   Reporter (except App-Appsec-Dev), tag active projects with
-                   DSO-Migrated, then optionally archive them.
+                   Reporter (only links currently above Reporter, and never
+                   App-Appsec-Dev), tag active projects with DSO-Migrated,
+                   then optionally archive them.
     APMID_BASED  - several groups (+ subgroups): tag active projects that carry
                    the APM-ID topic with DSO-Migrated, then optionally archive.
 """
