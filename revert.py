@@ -13,11 +13,15 @@ Run:
 
 import common
 
+log = common.log
+
 
 def revert_projects(gl, project_changes):
     """Unarchive (if we archived it) and put topics back to the original list."""
+    log.info("Reverting %d project change(s)", len(project_changes))
     rows = []
     for c in project_changes:
+        log.info("Reverting project %s", c["path"])
         project = gl.projects.get(c["project_id"])
 
         # Unarchive first - an archived project is read-only and can't be edited.
@@ -33,18 +37,24 @@ def revert_projects(gl, project_changes):
 
 def revert_ldap(gl, ldap_changes):
     """Set each LDAP link back to the access level it had before apply."""
+    log.info("Reverting %d LDAP change(s)", len(ldap_changes))
     rows = []
     for c in ldap_changes:
+        name = c["cn"] or f"filter:{c['filter']}"
+        log.info(
+            "Restoring LDAP link %s on %s to access %s",
+            name, c.get("group_path", c["group_id"]), c["old_access"],
+        )
         group = gl.groups.get(c["group_id"])
         common.set_ldap_link_access(
             group, c["cn"], c["filter"], c["provider"], c["old_access"]
         )
-        name = c["cn"] or f"filter:{c['filter']}"
         rows.append([c.get("group_path", str(c["group_id"])), name, c["old_access"]])
     return rows
 
 
 def main():
+    log.info("Starting revert")
     state = common.load_state()
     gl = common.get_client()
 
@@ -56,7 +66,7 @@ def main():
     ldap_rows = revert_ldap(gl, state.get("ldap_changes", []))
     common.print_table(["Group", "LDAP CN", "Restored access"], ldap_rows)
 
-    print("\nRevert complete.")
+    log.info("Revert complete.")
 
 
 if __name__ == "__main__":

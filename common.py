@@ -6,9 +6,40 @@ need lives here, so the two scripts stay short and easy to read.
 """
 
 import json
+import logging
 import os
+import sys
 
 import gitlab
+
+
+# --- Logging -----------------------------------------------------------------
+
+def setup_logging():
+    """Configure a console logger shared by every script.
+
+    Logs go to stdout with a timestamp and level so each step is easy to
+    follow in the CI job output. Calling this more than once is safe.
+    """
+    logger = logging.getLogger("decom")
+    if logger.handlers:  # already configured (e.g. imported twice)
+        return logger
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", "%H:%M:%S")
+    )
+    logger.addHandler(handler)
+    return logger
+
+
+# Module-level logger used everywhere: common.log.info(...) / .warning(...).
+log = setup_logging()
+
+
+def is_not_found(error):
+    """True if a GitLab error is an HTTP 404 (resource/mapping not found)."""
+    return getattr(error, "response_code", None) == 404
 
 
 # --- Constants ---------------------------------------------------------------
@@ -29,8 +60,10 @@ def get_client():
     """Create and log in to a GitLab API client using environment variables."""
     url = os.environ["CI_SERVER_URL"]  # predefined by GitLab CI (e.g. https://gitlab.com)
     token = os.environ["GITLAB_PRIVATE_TOKEN"]
-    gl = gitlab.Gitlab(url, private_token=token)
+    log.info("Connecting to GitLab at %s", url)
+    gl = gitlab.Gitlab(url, private_token=token, ssl_verify=False)
     gl.auth()  # fail fast and clearly if the token/url is wrong
+    log.info("Authenticated to GitLab as %s", gl.user.username)
     return gl
 
 
@@ -59,18 +92,45 @@ def set_ldap_link_access(group, cn, ldap_filter, provider, access_level):
 
     GitLab has no "update" endpoint for LDAP links, so we delete the existing
     link and add it back with the access level we want.
+
+    If the link is not mapped (the group has no matching LDAP link, e.g. on a
+    personal account or after a manual change), we log a warning and skip it
+    instead of failing with a 404.
     """
+    name = cn or f"filter:{ldap_filter}"
+
     # Find the matching live link and delete it. We call .delete() on the link
     # object itself because python-gitlab sends the provider + cn/filter that
     # the GitLab delete endpoint needs.
-    for link in group.ldap_group_links.list():
+    try:
+        links = group.ldap_group_links.list()
+    except gitlab.exceptions.GitlabError as e:
+        if is_not_found(e):
+            log.warning(
+                "LDAP link %s on group %s is not mapped (404) - skipping",
+                name, group.full_path,
+            )
+            return
+        raise
+
+    matched = False
+    for link in links:
         if link.provider != provider:
             continue
         same_cn = cn and getattr(link, "cn", None) == cn
         same_filter = not cn and getattr(link, "filter", None) == ldap_filter
         if same_cn or same_filter:
+            log.info("Deleting existing LDAP link %s on %s", name, group.full_path)
             link.delete()
+            matched = True
             break
+
+    if not matched:
+        log.warning(
+            "LDAP link %s on group %s is not mapped - skipping",
+            name, group.full_path,
+        )
+        return
 
     # Re-create the link with the access level we want.
     data = {"group_access": access_level, "provider": provider}
@@ -78,20 +138,27 @@ def set_ldap_link_access(group, cn, ldap_filter, provider, access_level):
         data["cn"] = cn
     else:
         data["filter"] = ldap_filter
+    log.info(
+        "Re-creating LDAP link %s on %s at access level %s",
+        name, group.full_path, access_level,
+    )
     group.ldap_group_links.create(data)
 
 
 def set_project_topics(project, topics):
     """Replace a project's topics with the given list and save."""
+    log.info("Setting topics on %s -> %s", project.path_with_namespace, topics)
     project.topics = topics
     project.save()
 
 
 def archive_project(project):
+    log.info("Archiving project %s", project.path_with_namespace)
     project.archive()
 
 
 def unarchive_project(project):
+    log.info("Unarchiving project %s", project.path_with_namespace)
     project.unarchive()
 
 
@@ -120,10 +187,16 @@ def save_state(state):
     """Write the revert information to disk as JSON."""
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
-    print(f"\nSaved revert state to {STATE_FILE}")
+    log.info(
+        "Saved revert state to %s (%d LDAP, %d project changes)",
+        STATE_FILE,
+        len(state.get("ldap_changes", [])),
+        len(state.get("project_changes", [])),
+    )
 
 
 def load_state():
     """Read the revert information back from disk."""
+    log.info("Loading revert state from %s", STATE_FILE)
     with open(STATE_FILE) as f:
         return json.load(f)

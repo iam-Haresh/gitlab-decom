@@ -18,7 +18,11 @@ Two strategies (chosen with the STRATEGY variable):
 
 import sys
 
+import gitlab
+
 import common
+
+log = common.log
 
 
 # --- Validation --------------------------------------------------------------
@@ -45,10 +49,12 @@ def validate_config(config):
 
 def collect_groups_for_ldap(gl, config):
     """Full_Group only: the top group plus every subgroup at any depth."""
+    log.info("Collecting groups for LDAP starting at group %s", config["group_id"])
     top = gl.groups.get(config["group_id"])
     groups = [top]
     for sub in top.descendant_groups.list(all=True):
         groups.append(gl.groups.get(sub.id))
+    log.info("Found %d group(s) (top group + subgroups)", len(groups))
     return groups
 
 
@@ -63,6 +69,7 @@ def collect_projects(gl, config):
     else:
         group_ids = config["group_ids"]
 
+    log.info("Collecting projects from group(s): %s", ", ".join(map(str, group_ids)))
     projects = []
     seen = set()  # avoid handling the same project twice (groups can overlap)
     for gid in group_ids:
@@ -73,6 +80,7 @@ def collect_projects(gl, config):
             with_shared=False,       # ignore shared projects
             all=True,
         )
+        log.info("Group %s: %d active project(s) found", group.full_path, len(group_projects))
         for gp in group_projects:
             if gp.id in seen:
                 continue
@@ -84,9 +92,14 @@ def collect_projects(gl, config):
 
             if config["strategy"] == common.STRATEGY_APMID_BASED:
                 if config["apm_id"] not in project.topics:
+                    log.info(
+                        "Skipping %s (missing APM-ID topic %r)",
+                        project.path_with_namespace, config["apm_id"],
+                    )
                     continue
 
             projects.append(project)
+    log.info("Collected %d project(s) to process", len(projects))
     return projects
 
 
@@ -96,18 +109,47 @@ def plan_ldap_changes(groups):
     """Find LDAP links to downgrade to Reporter (Full_Group only)."""
     changes = []
     for group in groups:
-        for link in group.ldap_group_links.list():
+        # A group may have no LDAP mapping at all. Listing then returns a 404
+        # on some GitLab setups - treat that as "nothing to do" with a warning
+        # rather than crashing the whole run.
+        try:
+            links = group.ldap_group_links.list()
+        except gitlab.exceptions.GitlabError as e:
+            if common.is_not_found(e):
+                log.warning(
+                    "Group %s has no LDAP links mapped (404) - skipping",
+                    group.full_path,
+                )
+                continue
+            raise
+
+        if not links:
+            log.warning("Group %s has no LDAP links mapped - skipping", group.full_path)
+            continue
+
+        log.info("Group %s: inspecting %d LDAP link(s)", group.full_path, len(links))
+        for link in links:
             cn = getattr(link, "cn", None)
             ldap_filter = getattr(link, "filter", None)
             old_access = link.group_access
+            name = cn or f"filter:{ldap_filter}"
 
             # Never touch the AppSec link (compare without caring about case).
             if cn and cn.lower() == common.EXCLUDED_LDAP_CN:
+                log.info("Keeping protected LDAP link %s on %s", name, group.full_path)
                 continue
             # Only downgrade. Skip links already at Reporter or lower.
             if old_access <= common.REPORTER:
+                log.info(
+                    "Skipping LDAP link %s on %s (already at %s <= Reporter)",
+                    name, group.full_path, old_access,
+                )
                 continue
 
+            log.info(
+                "Planning downgrade of LDAP link %s on %s (%s -> %s)",
+                name, group.full_path, old_access, common.REPORTER,
+            )
             changes.append({
                 "group_id": group.id,
                 "group_path": group.full_path,
@@ -149,15 +191,25 @@ def build_plan(gl, config):
         "project_changes": [],
     }
 
+    log.info("Building plan (strategy=%s)", config["strategy"])
+
     # LDAP role changes only happen for Full_Group, and only when LDAP is
     # enabled (LDAP_ENABLED=false lets us validate on a personal account that
     # has no LDAP group links).
     if config["strategy"] == common.STRATEGY_FULL_GROUP and config["ldap_enabled"]:
+        log.info("Step 1/2: planning LDAP role changes")
         groups = collect_groups_for_ldap(gl, config)
         plan["ldap_changes"] = plan_ldap_changes(groups)
+    else:
+        log.info("Step 1/2: LDAP role changes skipped (strategy/LDAP_ENABLED)")
 
+    log.info("Step 2/2: planning project changes")
     projects = collect_projects(gl, config)
     plan["project_changes"] = plan_project_changes(projects, config["archive_enabled"])
+    log.info(
+        "Plan ready: %d LDAP change(s), %d project change(s)",
+        len(plan["ldap_changes"]), len(plan["project_changes"]),
+    )
     return plan
 
 
@@ -216,16 +268,18 @@ def apply(gl, plan):
 
     try:
         # 1) LDAP role downgrades.
+        log.info("Applying %d LDAP role change(s)", len(plan["ldap_changes"]))
         for c in plan["ldap_changes"]:
             state["ldap_changes"].append(c)  # keeps old_access for revert
+            name = c["cn"] or f"filter:{c['filter']}"
+            log.info("LDAP: downgrading %s / %s -> Reporter", c["group_path"], name)
             group = gl.groups.get(c["group_id"])
             common.set_ldap_link_access(
                 group, c["cn"], c["filter"], c["provider"], c["new_access"]
             )
-            name = c["cn"] or f"filter:{c['filter']}"
-            print(f"LDAP  : {c['group_path']} / {name} -> Reporter")
 
         # 2) Project topic add + optional archive.
+        log.info("Applying %d project change(s)", len(plan["project_changes"]))
         for c in plan["project_changes"]:
             record = {
                 "project_id": c["project_id"],
@@ -235,14 +289,14 @@ def apply(gl, plan):
             }
             state["project_changes"].append(record)
 
+            log.info("TOPIC: %s += %s", c["path"], common.NEW_TOPIC)
             project = gl.projects.get(c["project_id"])
             common.set_project_topics(project, c["new_topics"])
-            print(f"TOPIC : {c['path']} += {common.NEW_TOPIC}")
 
             if c["will_archive"]:
+                log.info("ARCHIVE: %s", c["path"])
                 common.archive_project(project)
                 record["archived_by_us"] = True
-                print(f"ARCHIVE: {c['path']}")
     finally:
         common.save_state(state)
 
@@ -255,6 +309,7 @@ def main():
         sys.exit(1)
 
     mode = sys.argv[1]
+    log.info("Starting decommission in '%s' mode", mode)
     config = common.load_config()
     validate_config(config)
 
@@ -265,9 +320,11 @@ def main():
     print_summary(plan)
 
     if mode == "apply":
-        print("\nApplying changes...")
+        log.info("Applying changes...")
         apply(gl, plan)
-        print("\nDone.")
+        log.info("Done.")
+    else:
+        log.info("Summary mode - no changes were made.")
 
 
 if __name__ == "__main__":
