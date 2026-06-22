@@ -15,9 +15,10 @@ Pick one per pipeline run with the `STRATEGY` variable.
 
 ### `Full_Group`
 For one top-level group (and all its subgroups):
-1. Downgrade every **LDAP group link** role to **Reporter**, except the link whose
-   `cn` is `App-Appsec-Dev` (case-insensitive). Links already at Reporter or lower
-   are left unchanged.
+1. Downgrade every **LDAP group link** role to **Reporter** (access level 20), except
+   the link whose `cn` is `App-AppSec-GitLab-Developer` (case-insensitive). Links already
+   at Reporter or lower are left unchanged. Groups with no LDAP links mapped are skipped
+   with a warning (no 404 failure).
 2. Add the `DSO-Migrated` topic to every **active** project (existing topics kept).
 3. Optionally archive those projects (`ARCHIVE_ENABLED`).
 

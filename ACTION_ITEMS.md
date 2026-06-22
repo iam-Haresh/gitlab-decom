@@ -30,8 +30,9 @@ Things to take care of before running this for real. Tick them off as you go.
       (archived projects are skipped), but re-running with archive *off* re-records
       `old_topics` already containing `DSO-Migrated`, so a later revert won't remove it.
 - [ ] **Announce to affected teams** — role downgrades and archiving are user-visible.
-- [ ] **Self-managed SSL** — if the instance uses a private/self-signed CA,
-      python-gitlab may need extra SSL configuration (gitlab.com is fine).
+- [x] **Self-managed SSL** — the client sets `ssl_verify=False` in `get_client`
+      so private/self-signed CAs work. Note: this disables TLS verification (no
+      MITM protection) and emits an urllib3 `InsecureRequestWarning`.
 - [ ] **Always review the `summarize` job log before running `apply`.**
 
 ## Optional improvements

@@ -14,7 +14,7 @@ its own file.
 
 ## Strategies
 - **`Full_Group`** (one top-level group + subgroups): downgrade each LDAP group-link role to
-  **Reporter (30)** — only when currently **above** Reporter, and **never** the `App-Appsec-Dev`
+  **Reporter (20)** — only when currently **above** Reporter, and **never** the `App-AppSec-GitLab-Developer`
   link (cn match, case-insensitive); add the `DSO-Migrated` topic to every active project;
   optionally archive them.
 - **`APMID_BASED`** (several groups + subgroups): find active projects carrying the `APM_ID`
@@ -62,7 +62,7 @@ order: unarchive → restore topics → restore LDAP roles.
    `GROUP_ID=<test group>`, `ARCHIVE_ENABLED=false`; run `python decommission.py summary` —
    confirm the printed LDAP + project tables look right; no changes made.
 2. **Apply on a throwaway group:** `python decommission.py apply`; verify LDAP links above
-   Reporter are downgraded (Reporter-or-below and `App-Appsec-Dev` untouched), projects carry
+   Reporter are downgraded (Reporter-or-below and `App-AppSec-GitLab-Developer` untouched), projects carry
    `DSO-Migrated`, and (if enabled) are archived. Confirm `state.json` is written.
 3. **Revert:** `python revert.py`; verify roles, topics, archive status return to pre-apply.
 4. Repeat with `STRATEGY=APMID_BASED`, `APM_ID`, `GROUP_IDS` for the topic-based path.
