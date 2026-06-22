@@ -9,6 +9,10 @@ stages:
 # project CI/CD variable (Settings > CI/CD > Variables) so the token is never
 # stored in the repo.
 variables:
+  # pip must cache inside the project dir so GitLab can pick the path up as a
+  # cache (caches can only contain paths under $CI_PROJECT_DIR).
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
   STRATEGY:
     value: "Full_Group"
     options:
@@ -44,6 +48,15 @@ variables:
 
 default:
   image: python:3.11-slim
+  # Cache the downloaded pip packages between jobs/pipelines. The key is tied to
+  # requirements.txt so the cache is reused while deps are unchanged and rebuilt
+  # automatically when they change.
+  cache:
+    key:
+      files:
+        - requirements.txt
+    paths:
+      - .cache/pip
   before_script:
     - pip install -r requirements.txt
 

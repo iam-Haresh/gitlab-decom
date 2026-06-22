@@ -11,6 +11,7 @@ import os
 import sys
 
 import gitlab
+import urllib3
 
 
 # --- Logging -----------------------------------------------------------------
@@ -63,6 +64,10 @@ def get_client():
     url = os.environ["CI_SERVER_URL"]  # predefined by GitLab CI (e.g. https://gitlab.com)
     token = os.environ["GITLAB_PRIVATE_TOKEN"]
     log.info("Connecting to GitLab at %s", url)
+    # We intentionally disable TLS verification (ssl_verify=False) for
+    # self-signed/internal CAs, so silence the per-request InsecureRequestWarning
+    # that urllib3 would otherwise log on every API call.
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     gl = gitlab.Gitlab(url, private_token=token, ssl_verify=False)
     gl.auth()  # fail fast and clearly if the token/url is wrong
     log.info("Authenticated to GitLab as %s", gl.user.username)
