@@ -231,7 +231,9 @@ def print_summary(plan):
         for c in plan["ldap_changes"]:
             name = c["cn"] or f"filter:{c['filter']}"
             rows.append([c["group_path"], name, c["old_access"], c["new_access"]])
-        common.print_table(["Group", "LDAP CN", "Old", "New(30)"], rows)
+        common.print_table(
+            ["Group", "LDAP CN", "Old", f"New({common.REPORTER})"], rows
+        )
 
     print("\nProject changes (add topic / archive):")
     rows = []

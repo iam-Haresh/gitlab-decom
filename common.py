@@ -45,7 +45,9 @@ def is_not_found(error):
 # --- Constants ---------------------------------------------------------------
 
 NEW_TOPIC = "DSO-Migrated"          # topic we add to every migrated project
-REPORTER = 30                       # GitLab access level number for "Reporter"
+REPORTER = 20                       # GitLab access level number for "Reporter"
+                                    # (10=Guest, 20=Reporter, 30=Developer,
+                                    #  40=Maintainer, 50=Owner)
 EXCLUDED_LDAP_CN = "app-appsec-dev" # LDAP cn we must NEVER change (lower-case)
 STATE_FILE = "state.json"           # where apply writes the revert information
 
