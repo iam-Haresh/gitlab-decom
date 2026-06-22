@@ -162,8 +162,8 @@ def plan_ldap_changes(groups):
     return changes
 
 
-def plan_project_changes(projects, archive_enabled):
-    """Work out the new topic list (and archive flag) for each project."""
+def plan_project_changes(projects):
+    """Work out the new topic list for each project (all are archived)."""
     changes = []
     for project in projects:
         old_topics = list(project.topics)
@@ -176,7 +176,6 @@ def plan_project_changes(projects, archive_enabled):
             "path": project.path_with_namespace,
             "old_topics": old_topics,
             "new_topics": new_topics,
-            "will_archive": archive_enabled,
         })
     return changes
 
@@ -185,27 +184,24 @@ def build_plan(gl, config):
     """Build the full list of changes, without making any of them."""
     plan = {
         "strategy": config["strategy"],
-        "archive_enabled": config["archive_enabled"],
-        "ldap_enabled": config["ldap_enabled"],
         "ldap_changes": [],
         "project_changes": [],
     }
 
     log.info("Building plan (strategy=%s)", config["strategy"])
 
-    # LDAP role changes only happen for Full_Group, and only when LDAP is
-    # enabled (LDAP_ENABLED=false lets us validate on a personal account that
-    # has no LDAP group links).
-    if config["strategy"] == common.STRATEGY_FULL_GROUP and config["ldap_enabled"]:
+    # LDAP role changes only happen for Full_Group. (APMID_BASED never touches
+    # LDAP.) Groups without LDAP links mapped are skipped with a warning.
+    if config["strategy"] == common.STRATEGY_FULL_GROUP:
         log.info("Step 1/2: planning LDAP role changes")
         groups = collect_groups_for_ldap(gl, config)
         plan["ldap_changes"] = plan_ldap_changes(groups)
     else:
-        log.info("Step 1/2: LDAP role changes skipped (strategy/LDAP_ENABLED)")
+        log.info("Step 1/2: LDAP role changes not applicable (strategy=%s)", config["strategy"])
 
     log.info("Step 2/2: planning project changes")
     projects = collect_projects(gl, config)
-    plan["project_changes"] = plan_project_changes(projects, config["archive_enabled"])
+    plan["project_changes"] = plan_project_changes(projects)
     log.info(
         "Plan ready: %d LDAP change(s), %d project change(s)",
         len(plan["ldap_changes"]), len(plan["project_changes"]),
@@ -219,12 +215,11 @@ def print_summary(plan):
     """Print everything that will change, as tables, for review."""
     print("=" * 70)
     print(f"DECOMMISSION SUMMARY   strategy={plan['strategy']}")
-    print(f"Archive projects: {plan['archive_enabled']}")
-    print(f"LDAP enabled    : {plan['ldap_enabled']}")
+    print("Archive projects: yes (always)")
     print("=" * 70)
 
-    if not plan["ldap_enabled"]:
-        print("\nLDAP role changes: SKIPPED (LDAP_ENABLED=false)")
+    if plan["strategy"] != common.STRATEGY_FULL_GROUP:
+        print("\nLDAP role changes: N/A for this strategy")
     else:
         print("\nLDAP role changes (downgrade to Reporter):")
         rows = []
@@ -235,7 +230,7 @@ def print_summary(plan):
             ["Group", "LDAP CN", "Old", f"New({common.REPORTER})"], rows
         )
 
-    print("\nProject changes (add topic / archive):")
+    print("\nProject changes (add topic, then archive):")
     rows = []
     for c in plan["project_changes"]:
         already = common.NEW_TOPIC in c["old_topics"]
@@ -246,7 +241,7 @@ def print_summary(plan):
             c["path"],
             existing,
             topic_note,
-            "yes" if c["will_archive"] else "no",
+            "yes",
         ])
     common.print_table(
         ["ID", "Project", "Existing topics", "Topic", "Archive"], rows
@@ -280,7 +275,7 @@ def apply(gl, plan):
                 group, c["cn"], c["filter"], c["provider"], c["new_access"]
             )
 
-        # 2) Project topic add + optional archive.
+        # 2) Project topic add + archive.
         log.info("Applying %d project change(s)", len(plan["project_changes"]))
         for c in plan["project_changes"]:
             record = {
@@ -295,10 +290,9 @@ def apply(gl, plan):
             project = gl.projects.get(c["project_id"])
             common.set_project_topics(project, c["new_topics"])
 
-            if c["will_archive"]:
-                log.info("ARCHIVE: %s", c["path"])
-                common.archive_project(project)
-                record["archived_by_us"] = True
+            log.info("ARCHIVE: %s", c["path"])
+            common.archive_project(project)
+            record["archived_by_us"] = True
     finally:
         common.save_state(state)
 

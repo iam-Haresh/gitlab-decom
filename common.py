@@ -79,16 +79,11 @@ def load_config():
     group_ids_raw = os.environ.get("GROUP_IDS", "")
     group_ids = [g.strip() for g in group_ids_raw.split(",") if g.strip()]
 
-    archive_flag = os.environ.get("ARCHIVE_ENABLED", "false").strip().lower()
-    ldap_flag = os.environ.get("LDAP_ENABLED", "true").strip().lower()
-
     return {
         "strategy": os.environ.get("STRATEGY", "").strip(),
         "group_id": os.environ.get("GROUP_ID", "").strip(),
         "apm_id": os.environ.get("APM_ID", "").strip(),
         "group_ids": group_ids,
-        "archive_enabled": archive_flag == "true",
-        "ldap_enabled": ldap_flag == "true",
     }
 
 

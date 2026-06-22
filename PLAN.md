@@ -53,17 +53,16 @@ order: unarchive → restore topics → restore LDAP roles.
 ## CI/CD variables
 - `CI_SERVER_URL` (predefined by GitLab), `GITLAB_PRIVATE_TOKEN` (masked project var; owner/admin)
 - `STRATEGY` = `Full_Group` | `APMID_BASED` (dropdown)
-- `ARCHIVE_ENABLED` = `false` | `true` (dropdown)
 - `Full_Group`: `GROUP_ID`
 - `APMID_BASED`: `APM_ID`, `GROUP_IDS` (comma-separated)
 
 ## Verification
 1. **Local dry run:** export `CI_SERVER_URL`, `GITLAB_PRIVATE_TOKEN`, `STRATEGY=Full_Group`,
-   `GROUP_ID=<test group>`, `ARCHIVE_ENABLED=false`; run `python decommission.py summary` —
+   `GROUP_ID=<test group>`; run `python decommission.py summary` —
    confirm the printed LDAP + project tables look right; no changes made.
 2. **Apply on a throwaway group:** `python decommission.py apply`; verify LDAP links above
    Reporter are downgraded (Reporter-or-below and `App-AppSec-GitLab-Developer` untouched), projects carry
-   `DSO-Migrated`, and (if enabled) are archived. Confirm `state.json` is written.
+   `DSO-Migrated`, and are archived. Confirm `state.json` is written.
 3. **Revert:** `python revert.py`; verify roles, topics, archive status return to pre-apply.
 4. Repeat with `STRATEGY=APMID_BASED`, `APM_ID`, `GROUP_IDS` for the topic-based path.
 5. Pipeline: Job 1 auto, Jobs 2 & 3 manual, Job 3 consumes Job 2's `state.json` via `needs`.

@@ -20,13 +20,13 @@ For one top-level group (and all its subgroups):
    at Reporter or lower are left unchanged. Groups with no LDAP links mapped are skipped
    with a warning (no 404 failure).
 2. Add the `DSO-Migrated` topic to every **active** project (existing topics kept).
-3. Optionally archive those projects (`ARCHIVE_ENABLED`).
+3. Archive those projects.
 
 ### `APMID_BASED`
 Across several groups (and their subgroups):
 1. Find **active** projects that carry the APM-ID topic (`APM_ID`).
 2. Add the `DSO-Migrated` topic to them (existing topics kept).
-3. Optionally archive those projects (`ARCHIVE_ENABLED`).
+3. Archive those projects.
 
 > Archived projects and shared projects are always ignored.
 > `APMID_BASED` never changes LDAP roles.
@@ -41,8 +41,6 @@ Across several groups (and their subgroups):
 | `GROUP_ID` | `Full_Group` | The single top-level group id. |
 | `APM_ID` | `APMID_BASED` | The APM-ID topic to match on. |
 | `GROUP_IDS` | `APMID_BASED` | Comma-separated group ids to search, e.g. `12,34,56`. |
-| `ARCHIVE_ENABLED` | both | `true` to archive projects after tagging, `false` to skip archiving. |
-| `LDAP_ENABLED` | `Full_Group` | `true` (default) applies LDAP role downgrades. Set `false` to skip LDAP entirely — used to validate on accounts without LDAP (e.g. gitlab.com personal). Keep `true` in production. |
 
 ## Files
 
@@ -61,8 +59,6 @@ export CI_SERVER_URL="https://gitlab.example.com"
 export GITLAB_PRIVATE_TOKEN="xxxxx"
 export STRATEGY="Full_Group"
 export GROUP_ID="123"
-export ARCHIVE_ENABLED="false"
-export LDAP_ENABLED="false"        # set "true" only on an LDAP-configured instance
 
 python decommission.py summary    # review - no changes
 python decommission.py apply      # apply  - writes state.json
