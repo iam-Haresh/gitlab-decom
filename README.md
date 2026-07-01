@@ -20,13 +20,13 @@ For one top-level group (and all its subgroups):
    at Reporter or lower are left unchanged. Groups with no LDAP links mapped are skipped
    with a warning (no 404 failure).
 2. Add the `DSO-Migrated` topic to every **active** project (existing topics kept).
-3. Archive those projects.
+3. Archive those projects (only if `ARCHIVE_PROJECTS` is `true`; off by default).
 
 ### `APMID_BASED`
 Across several groups (and their subgroups):
 1. Find **active** projects that carry the APM-ID topic (`APM_ID`).
 2. Add the `DSO-Migrated` topic to them (existing topics kept).
-3. Archive those projects.
+3. Archive those projects (only if `ARCHIVE_PROJECTS` is `true`; off by default).
 
 > Archived projects and shared projects are always ignored.
 > `APMID_BASED` never changes LDAP roles.
@@ -41,6 +41,7 @@ Across several groups (and their subgroups):
 | `GROUP_ID` | `Full_Group` | The single top-level group id. |
 | `APM_ID` | `APMID_BASED` | The APM-ID topic to match on. |
 | `GROUP_IDS` | `APMID_BASED` | Comma-separated group ids to search, e.g. `12,34,56`. |
+| `ARCHIVE_PROJECTS` | both | `true` to archive projects after tagging. Defaults to `false` (no archiving). |
 
 ## Files
 

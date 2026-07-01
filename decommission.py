@@ -163,7 +163,11 @@ def plan_ldap_changes(groups):
 
 
 def plan_project_changes(projects):
-    """Work out the new topic list for each project (all are archived)."""
+    """Work out the new topic list for each project.
+
+    Archiving (if enabled via ARCHIVE_PROJECTS) happens at apply time; the
+    topic plan is the same either way.
+    """
     changes = []
     for project in projects:
         old_topics = list(project.topics)
@@ -184,6 +188,7 @@ def build_plan(gl, config):
     """Build the full list of changes, without making any of them."""
     plan = {
         "strategy": config["strategy"],
+        "archive": config["archive"],
         "ldap_changes": [],
         "project_changes": [],
     }
@@ -215,7 +220,7 @@ def print_summary(plan):
     """Print everything that will change, as tables, for review."""
     print("=" * 70)
     print(f"DECOMMISSION SUMMARY   strategy={plan['strategy']}")
-    print("Archive projects: yes (always)")
+    print(f"Archive projects: {'yes' if plan['archive'] else 'no'}")
     print("=" * 70)
 
     if plan["strategy"] != common.STRATEGY_FULL_GROUP:
@@ -230,7 +235,8 @@ def print_summary(plan):
             ["Group", "LDAP CN", "Old", f"New({common.REPORTER})"], rows
         )
 
-    print("\nProject changes (add topic, then archive):")
+    action = "add topic, then archive" if plan["archive"] else "add topic"
+    print(f"\nProject changes ({action}):")
     rows = []
     for c in plan["project_changes"]:
         already = common.NEW_TOPIC in c["old_topics"]
@@ -241,7 +247,7 @@ def print_summary(plan):
             c["path"],
             existing,
             topic_note,
-            "yes",
+            "yes" if plan["archive"] else "no",
         ])
     common.print_table(
         ["ID", "Project", "Existing topics", "Topic", "Archive"], rows
@@ -290,9 +296,12 @@ def apply(gl, plan):
             project = gl.projects.get(c["project_id"])
             common.set_project_topics(project, c["new_topics"])
 
-            log.info("ARCHIVE: %s", c["path"])
-            common.archive_project(project)
-            record["archived_by_us"] = True
+            if plan["archive"]:
+                log.info("ARCHIVE: %s", c["path"])
+                common.archive_project(project)
+                record["archived_by_us"] = True
+            else:
+                log.info("ARCHIVE: skipped for %s (ARCHIVE_PROJECTS is false)", c["path"])
     finally:
         common.save_state(state)
 

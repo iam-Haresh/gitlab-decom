@@ -26,11 +26,12 @@ Things to take care of before running this for real. Tick them off as you go.
       archive `state.json` somewhere durable.
 
 ## Operational gotchas
-- [ ] **Run `apply` once per group.** Projects are always archived now, and
-      already-archived projects are skipped on collection, so a clean re-run is
-      safe. Avoid re-running after a partial/manual change: `old_topics` is
+- [ ] **Run `apply` once per group.** When `ARCHIVE_PROJECTS=true`, projects are
+      archived and already-archived projects are skipped on collection, so a clean
+      re-run is safe. Avoid re-running after a partial/manual change: `old_topics` is
       re-recorded from the current state, so if `DSO-Migrated` is already present
-      a later revert won't remove it.
+      a later revert won't remove it. (With archiving off, re-runs re-tag the same
+      active projects, which is harmless but redundant.)
 - [ ] **Announce to affected teams** — role downgrades and archiving are user-visible.
 - [x] **Self-managed SSL** — the client sets `ssl_verify=False` in `get_client`
       so private/self-signed CAs work. Note: this disables TLS verification (no

@@ -32,6 +32,13 @@ variables:
     value: ""
     description: "APMID_BASED only: comma-separated group ids to search, including their subgroups (e.g. 12,34,56). Leave empty for Full_Group."
 
+  ARCHIVE_PROJECTS:
+    value: "false"
+    options:
+      - "false"
+      - "true"
+    description: "Whether to archive the projects after tagging them. Disabled by default - set to true to archive."
+
 default:
   image: python:3.11-slim
   # Cache the downloaded pip packages between jobs/pipelines. The key is tied to

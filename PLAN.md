@@ -55,6 +55,7 @@ order: unarchive → restore topics → restore LDAP roles.
 - `STRATEGY` = `Full_Group` | `APMID_BASED` (dropdown)
 - `Full_Group`: `GROUP_ID`
 - `APMID_BASED`: `APM_ID`, `GROUP_IDS` (comma-separated)
+- Both: `ARCHIVE_PROJECTS` = `true` | `false` (dropdown; archiving off by default)
 
 ## Verification
 1. **Local dry run:** export `CI_SERVER_URL`, `GITLAB_PRIVATE_TOKEN`, `STRATEGY=Full_Group`,

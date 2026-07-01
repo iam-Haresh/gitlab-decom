@@ -79,11 +79,16 @@ def load_config():
     group_ids_raw = os.environ.get("GROUP_IDS", "")
     group_ids = [g.strip() for g in group_ids_raw.split(",") if g.strip()]
 
+    # Archiving is opt-in: only "true" (any case) turns it on. Anything else
+    # (including the empty default) leaves projects unarchived.
+    archive = os.environ.get("ARCHIVE_PROJECTS", "false").strip().lower() == "true"
+
     return {
         "strategy": os.environ.get("STRATEGY", "").strip(),
         "group_id": os.environ.get("GROUP_ID", "").strip(),
         "apm_id": os.environ.get("APM_ID", "").strip(),
         "group_ids": group_ids,
+        "archive": archive,
     }
 
 
